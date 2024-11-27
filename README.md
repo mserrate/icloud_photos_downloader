@@ -31,6 +31,7 @@ See [Documentation](https://icloud-photos-downloader.github.io/icloud_photos_dow
 - One time download and an option to monitor for iCloud changes continuously (`--watch-with-interval` option)
 - Optimizations for incremental runs (`--until-found` and `--recent` options)
 - Photo metadata (EXIF) updates (`--set-exif-datetime` option)
+- Filter items to download by creation date (`--created-before` and/or `--created-after`)
 - ... and many more (use `--help` option to get full list)
 
 <!-- end features -->

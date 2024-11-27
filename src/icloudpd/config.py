@@ -18,6 +18,8 @@ class Config:
         live_photo_size: LivePhotoVersionSize,
         recent: Optional[int],
         until_found: Optional[int],
+        created_before: str,
+        created_after: str,
         album: str,
         list_albums: bool,
         library: str,
@@ -59,6 +61,8 @@ class Config:
         self.live_photo_size = live_photo_size
         self.recent = recent
         self.until_found = until_found
+        self.created_before = created_before
+        self.created_after = created_after
         self.album = album
         self.list_albums = list_albums
         self.library = library

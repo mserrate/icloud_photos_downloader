@@ -343,6 +343,14 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
     "previously downloaded consecutive photos (default: download all photos)",
     type=click.IntRange(0),
 )
+@click.option("--created-before",
+              help="Only download pictures/videos created before specified date in YYYY-MM-DD format.",
+              default=None,
+              )
+@click.option("--created-after",
+              help="Only download pictures/videos created after specified date in YYYY-MM-DD format.",
+              default=None,
+              )
 @click.option(
     "-a",
     "--album",
@@ -577,6 +585,8 @@ def main(
     live_photo_size: LivePhotoVersionSize,
     recent: Optional[int],
     until_found: Optional[int],
+    created_before: str,
+    created_after: str,
     album: str,
     list_albums: bool,
     library: str,
@@ -650,6 +660,25 @@ def main(
             )
             sys.exit(2)
 
+        if created_before:
+            try:
+                created_before = datetime.datetime.strptime(
+                    created_before, "%Y-%m-%d")
+            except ValueError:
+                print("Given --created-before does not match required format YYYY-MM-DD.")
+                sys.exit(2)
+
+            created_before = created_before.replace(tzinfo=get_localzone())
+
+        if created_after:
+            try:
+                created_after = datetime.datetime.strptime(created_after, "%Y-%m-%d")
+            except ValueError:
+                print("Given --created-after does not match required format YYYY-MM-DD.")
+                sys.exit(2)
+
+            created_after = created_after.replace(tzinfo=get_localzone())
+
         # hacky way to use one param in another
         if password and "parameter" in password_providers:
             # replace
@@ -688,6 +717,8 @@ def main(
             live_photo_size=live_photo_size,
             recent=recent,
             until_found=until_found,
+            created_before=created_before,
+            created_after=created_after,
             album=album,
             list_albums=list_albums,
             library=library,
@@ -742,6 +773,8 @@ def main(
             server_thread = Thread(target=serve_app, daemon=True, args=[logger, status_exchange])
             server_thread.start()
 
+        filter_by_date = created_before is not None or created_after is not None
+        
         result = core(
             download_builder(
                 logger,
@@ -753,6 +786,8 @@ def main(
                 only_print_filenames,
                 set_exif_datetime,
                 skip_live_photos,
+                created_before,
+                created_after,
                 live_photo_size,
                 dry_run,
                 file_match_policy,
@@ -766,6 +801,7 @@ def main(
             size,
             recent,
             until_found,
+            filter_by_date,
             album,
             list_albums,
             library,
@@ -809,6 +845,8 @@ def download_builder(
     only_print_filenames: bool,
     set_exif_datetime: bool,
     skip_live_photos: bool,
+    created_before: datetime.datetime | None,
+    created_after: datetime.datetime | None,
     live_photo_size: LivePhotoVersionSize,
     dry_run: bool,
     file_match_policy: FileMatchPolicy,
@@ -841,6 +879,18 @@ def download_builder(
                     "Could not convert photo created date to local timezone (%s)", photo.created
                 )
                 created_date = photo.created
+
+            if created_before and created_date > created_before:
+                logger.debug(
+                    "Skipping %s, date is after the given latest date.",
+                    photo.filename)
+                return False
+
+            if created_after and created_date < created_after:
+                logger.debug(
+                    "Skipping %s, date is before the given earliest date.",
+                    photo.filename)
+                return False
 
             if folder_structure.lower() == "none":
                 date_path = ""
@@ -1140,6 +1190,7 @@ def core(
     primary_sizes: Sequence[AssetVersionSize],
     recent: Optional[int],
     until_found: Optional[int],
+    filter_by_date: bool,
     album: str,
     list_albums: bool,
     library: str,
@@ -1277,6 +1328,11 @@ def core(
                 photos_enumerator = itertools.islice(photos_enumerator, recent)
 
             if until_found is not None:
+                photos_count = None
+                # ensure photos iterator doesn't have a known length
+                photos_enumerator = (p for p in photos_enumerator)
+
+            if filter_by_date is True:
                 photos_count = None
                 # ensure photos iterator doesn't have a known length
                 photos_enumerator = (p for p in photos_enumerator)
