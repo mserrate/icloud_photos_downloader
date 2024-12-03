@@ -343,14 +343,21 @@ CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
     "previously downloaded consecutive photos (default: download all photos)",
     type=click.IntRange(0),
 )
-@click.option("--created-before",
-              help="Only download pictures/videos created before specified date in YYYY-MM-DD format.",
-              default=None,
-              )
-@click.option("--created-after",
-              help="Only download pictures/videos created after specified date in YYYY-MM-DD format.",
-              default=None,
-              )
+@click.option(
+    "--created-before",
+    help="Only download pictures/videos created before specified date in YYYY-MM-DD format",
+    default=None,
+)
+@click.option(
+    "--created-after",
+    help="Only download pictures/videos created after specified date in YYYY-MM-DD format",
+    default=None,
+  )
+@click.option(
+    "--skip-favorites",
+    help="Skip favorite photos",
+    is_flag=True,
+)
 @click.option(
     "-a",
     "--album",
@@ -587,6 +594,7 @@ def main(
     until_found: Optional[int],
     created_before: str,
     created_after: str,
+    skip_favorites: bool,
     album: str,
     list_albums: bool,
     library: str,
@@ -719,6 +727,7 @@ def main(
             until_found=until_found,
             created_before=created_before,
             created_after=created_after,
+            skip_favorites=skip_favorites,
             album=album,
             list_albums=list_albums,
             library=library,
@@ -788,6 +797,7 @@ def main(
                 skip_live_photos,
                 created_before,
                 created_after,
+                skip_favorites,
                 live_photo_size,
                 dry_run,
                 file_match_policy,
@@ -847,6 +857,7 @@ def download_builder(
     skip_live_photos: bool,
     created_before: datetime.datetime | None,
     created_after: datetime.datetime | None,
+    skip_favorites: bool,
     live_photo_size: LivePhotoVersionSize,
     dry_run: bool,
     file_match_policy: FileMatchPolicy,
@@ -882,15 +893,21 @@ def download_builder(
 
             if created_before and created_date > created_before:
                 logger.debug(
-                    "Skipping %s, date is after the given latest date.",
+                    "Skipping %s, date is after the given latest date",
                     photo.filename)
                 return False
 
             if created_after and created_date < created_after:
                 logger.debug(
-                    "Skipping %s, date is before the given earliest date.",
+                    "Skipping %s, date is before the given earliest date",
                     photo.filename)
                 return False
+
+            if photo._asset_record['fields']['isFavorite']['value'] == 1:
+                logger.debug(
+                    "Skipping %s, because it's marked as favorite",
+                    photo.filename)
+                return False             
 
             if folder_structure.lower() == "none":
                 date_path = ""

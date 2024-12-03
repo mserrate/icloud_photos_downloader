@@ -20,6 +20,7 @@ class Config:
         until_found: Optional[int],
         created_before: str,
         created_after: str,
+        skip_favorites: bool,
         album: str,
         list_albums: bool,
         library: str,
